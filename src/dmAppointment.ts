@@ -34,6 +34,8 @@ const grammar: { [index: string]: { person?: string, day?: string, whole_day?:st
     "at sixteen": { time: "16:00" },
     "at seventeen": { time: "17:00" },
     "at eighteen": { time: "18:00" },
+    "yes": { confirm: "confirmed"},
+    "no": { confirm: "not_confirmed" },
 }
 
 
@@ -111,7 +113,8 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                 RECOGNISED: [{
                     cond: (context) => "whole_day" in (grammar[context.recResult] || {}),
                     actions: assign((context) => { return { whole_day: grammar[context.recResult].whole_day } }),
-                    target: "time"
+                    target: 'time', cond: (context) => context.whole_day === 'not the whole day' ,
+                    target: 'confirm_without_time'
 
                 },
                 { target: ".nomatch" }]
@@ -139,7 +142,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                 RECOGNISED: [{
                     cond: (context) => "time" in (grammar[context.recResult] || {}),
                     actions: assign((context) => { return { time: grammar[context.recResult].time } }),
-                    target: "confirm"
+                    target: "confirm_with_time"
 
                 },
                 { target: ".nomatch" }]
@@ -159,6 +162,71 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                     entry: say("Sorry I don't understand. Say a time."),
                     on: { ENDSPEECH: "prompt" }
                 }
+            }
+        },
+        confirm_without_time: {
+            initial: "prompt",
+            on: {
+                RECOGNISED: [{
+                    cond: (context) => "confirm" in (grammar[context.recResult] || {}),
+                    actions: assign((context) => { return { confirm: grammar[context.recResult].confirm } }),
+                    target: 'final', cond: (context) => context.confirm === 'confirmed' ,
+                    target: 'who', cond: (context) => context.confirm === 'not_confirmed'
+
+                },
+                { target: ".nomatch" }]
+            },
+            states: {
+                prompt: {
+                    entry: send((context) => ({
+                        type: "SPEAK",
+                        value: `Do you want me to creat an appointment with ${context.person} on ${context.day} for the whole day?`
+                    })),
+                    on: { ENDSPEECH: "ask" }
+                },
+                ask: {
+                    entry: listen()
+                },
+                nomatch: {
+                    entry: say("Sorry I don't understand. Say yes or no."),
+                    on: { ENDSPEECH: "prompt" }
+                }
+            }
+        },
+        confirm_with_time: {
+            initial: "prompt",
+            on: {
+                RECOGNISED: [{
+                    cond: (context) => "confirm" in (grammar[context.recResult] || {}),
+                    actions: assign((context) => { return { confirm: grammar[context.recResult].confirm } }),
+                    target: 'final', cond: (context) => context.confirm === 'confirmed' ,
+                    target: 'who', cond: (context) => context.confirm === 'not_confirmed'
+
+                },
+                { target: ".nomatch" }]
+            },
+            states: {
+                prompt: {
+                    entry: send((context) => ({
+                        type: "SPEAK",
+                        value: `Do you want me to creat an appointment with ${context.person} on ${context.day} at ${context.time}?`
+                    })),
+                    on: { ENDSPEECH: "ask" }
+                },
+                ask: {
+                    entry: listen()
+                },
+                nomatch: {
+                    entry: say("Sorry I don't understand. Say yes or no."),
+                    on: { ENDSPEECH: "prompt" }
+                }
+            }
+        },
+        final: {
+            initial: "prompt",
+            type: "final",
+            states: {
+                prompt: { entry: say("Your appointment has been created!") }
             }
         },
     }
