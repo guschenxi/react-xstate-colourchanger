@@ -14,6 +14,42 @@ inspect({
 
 import { useSpeechSynthesis, useSpeechRecognition } from 'react-speech-kit';
 
+const IntentMachine = Machine({
+  id: 'intent',
+  initial: 'idle',
+  context: {
+    text: undefined,
+    intent: undefined,
+    error: undefined
+  },
+  states: {
+    idle: {
+      on: {
+        FETCH: 'loading'
+      }
+    },
+    loading: {
+      invoke: {
+        id: 'getIntent',
+        src: (context, event) => nluRequest(context.text),
+        onDone: {
+          target: 'success',
+          actions: assign({ intent: (context, event) => event.data })
+        },
+        onError: {
+          target: 'failure',
+          actions: assign({ error: (context, event) => event.data })
+        }
+      }
+    },
+    success: {},
+    failure: {
+      on: {
+        RETRY: 'loading'
+      }
+    }
+  }
+});
 
 const machine = Machine<SDSContext, any, SDSEvent>({
     id: 'root',
@@ -164,7 +200,7 @@ function App() {
 /* RASA API
  *  */
 const proxyurl = "https://cors-anywhere.herokuapp.com/";
-const rasaurl = 'https://rasa-nlu-api-00.herokuapp.com/model/parse'
+const rasaurl = 'https://lt2216-a2.herokuapp.com/model/parse'
 const nluRequest = (text: string) =>
     fetch(new Request(proxyurl + rasaurl, {
         method: 'POST',
