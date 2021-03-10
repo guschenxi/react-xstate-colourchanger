@@ -49,14 +49,10 @@ const grammar5: { [index: string]: { confirm?: boolen } } = {
 
 
 export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
-    initial: 'init',
-    id: "main",
+    initial: 'welcome',
+    id: "appointmentMachine",
     states: {
-        init: {
-            on: {
-                CLICK: 'welcome'
-            }
-        },
+
         welcome: {
             initial: "prompt",
             on: { ENDSPEECH: "who" },
@@ -142,8 +138,8 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                 choose: {
                       on: {
                         "": [
-                             {target: '#main.time', cond: (context) => context.whole_day === false},
-                             {target: '#main.confirm_without_time'}] 
+                             {target: '#appointmentMachine.time', cond: (context) => context.whole_day === false},
+                             {target: '#appointmentMachine.confirm_without_time'}] 
                       }
                 },
                 nomatch: {
@@ -206,8 +202,8 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                 choose: {
                       on: {
                         "": [
-                             {target: '#main.final', cond: (context) => context.confirm === true },
-                             {target: '#main.who', cond: (context) => context.confirm === false }
+                             {target: '#appointmentMachine.final', cond: (context) => context.confirm === true },
+                             {target: '#appointmentMachine.who', cond: (context) => context.confirm === false }
                             ] 
                       }
                 },
@@ -242,8 +238,8 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                 choose: {
                       on: {
                         "": [
-                             {target: '#main.final', cond: (context) => context.confirm === true },
-                             {target: '#main.who', cond: (context) => context.confirm === false }
+                             {target: '#appointmentMachine.final', cond: (context) => context.confirm === true },
+                             {target: '#appointmentMachine.who', cond: (context) => context.confirm === false }
                             ] 
                       }
                 },
@@ -259,6 +255,33 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                 prompt: { 
                     type: "final",
                     entry: say("Your appointment has been created!") }
+            }
+        },
+    }
+})
+
+
+export const TODOitem: MachineConfig<SDSContext, any, SDSEvent> = ({
+    initial: 'welcome',
+    id: "TODOitem",
+    states: {
+        welcome: {
+            initial: "prompt",
+            states: {
+                prompt: { entry: say("Choose an item to do.") }
+            }
+        },
+    }
+})
+
+export const Timer: MachineConfig<SDSContext, any, SDSEvent> = ({
+    initial: 'welcome',
+    id: "Timer",
+    states: {
+        welcome: {
+            initial: "prompt",
+            states: {
+                prompt: { entry: say("Let's set a timer.") }
             }
         },
     }

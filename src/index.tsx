@@ -4,7 +4,7 @@ import * as ReactDOM from "react-dom";
 import { Machine, assign, send, State } from "xstate";
 import { useMachine, asEffect } from "@xstate/react";
 import { inspect } from "@xstate/inspect";
-import { dmMachine } from "./dmAppointment";
+import { dmMachine, TODOitem, Timer } from "./dmAppointment";
 
 
 inspect({
@@ -14,24 +14,76 @@ inspect({
 
 import { useSpeechSynthesis, useSpeechRecognition } from 'react-speech-kit';
 
-const IntentMachine = Machine({
+
+function say(text: string): Action<SDSContext, SDSEvent> {
+    return send((_context: SDSContext) => ({ type: "SPEAK", value: text }))
+}
+
+function listen(): Action<SDSContext, SDSEvent> {
+    return send('LISTEN')
+}
+
+
+
+const machine = Machine<SDSContext, any, SDSEvent>({
+    id: 'root',
+    type: 'parallel',
+    states: {
+        dm: {
+          initial: 'IntentMachine',
+          id: "main",
+          states:{
+
+/* Intent Machine START*/
+
+                IntentMachine: {
   id: 'intent',
-  initial: 'idle',
+  initial: 'init',
   context: {
     text: undefined,
     intent: undefined,
     error: undefined
   },
   states: {
-    idle: {
+        init: {
+            on: {
+                CLICK: 'welcome'
+            }
+        },
+        welcome: {
+            initial: "prompt",
+            on: { ENDSPEECH: "intent" },
+            states: {
+                prompt: { entry: say("Welcome!") }
+            }
+        },
+        intent: {
+            initial: "prompt",
+            on: {
+                RECOGNISED: [{
+                    actions: assign((context) => { return { text: context.recResult } }),
+                    target: "idle"
+                }]
+            },
+            states: {
+                prompt: {
+                    entry: say("What would you like to do?"),
+                    on: { ENDSPEECH: "ask" }
+                },
+                ask: {
+                    entry: listen()
+                },
+            }
+        },
+   idle: {
       on: {
-        FETCH: 'loading'
+        "": 'loading'
       }
     },
     loading: {
       invoke: {
         id: 'getIntent',
-        src: (context, event) => nluRequest(context.text),
+        src: (context) => nluRequest(context.text),
         onDone: {
           target: 'success',
           actions: assign({ intent: (context, event) => event.data })
@@ -42,21 +94,38 @@ const IntentMachine = Machine({
         }
       }
     },
-    success: {},
+    success: {
+                      on: {
+                        "": [
+                             {target: '#root.dm.dmAppointment', cond: (context) => context.intent === "Appointment" },
+                             {target: '#root.dm.TODOitem', cond: (context) => context.intent === "TODOitem" },
+                             {target: '#root.dm.Timer', cond: (context) => context.intent === "Timer" }
+                            ] 
+                      }
+    },
     failure: {
       on: {
-        RETRY: 'loading'
+        "" : [{
+                    target: "intent"
+                    /* pretending get correct value from RASA, and try next steps
+                    actions: assign((context) => { return { intent: "TODOitem" } }),
+                    target: "success"
+                    */
+
+                }]
       }
     }
   }
-});
+},
 
-const machine = Machine<SDSContext, any, SDSEvent>({
-    id: 'root',
-    type: 'parallel',
-    states: {
-        dm: {
-            ...dmMachine
+/* Intent Machine END*/
+
+                dmAppointment: {...dmMachine},
+                TODOitem: {...TODOitem},
+                Timer: {...Timer},
+            }
+
+
         },
         asrtts: {
             initial: 'idle',
@@ -204,7 +273,7 @@ const rasaurl = 'https://lt2216-a2.herokuapp.com/model/parse'
 const nluRequest = (text: string) =>
     fetch(new Request(proxyurl + rasaurl, {
         method: 'POST',
-        headers: { 'Origin': 'http://maraev.me' }, // only required with proxy
+ //       headers: { 'Origin': 'http://maraev.me' }, // only required with proxy
         body: `{"text": "${text}"}`
     }))
         .then(data => data.json());
@@ -213,3 +282,6 @@ const rootElement = document.getElementById("root");
 ReactDOM.render(
     <App />,
     rootElement);
+
+
+
