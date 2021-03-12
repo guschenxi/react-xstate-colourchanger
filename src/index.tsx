@@ -30,26 +30,23 @@ const machine = Machine<SDSContext, any, SDSEvent>({
     type: 'parallel',
     states: {
         dm: {
-          initial: 'IntentMachine',
+          initial: 'init',
           id: "main",
           states:{
-
+              init: {on: {CLICK: 'IntentMachine'}
+        },
 /* Intent Machine START*/
 
                 IntentMachine: {
   id: 'intent',
-  initial: 'init',
+  initial: 'welcome',
   context: {
     text: undefined,
     intent: undefined,
     error: undefined
   },
   states: {
-        init: {
-            on: {
-                CLICK: 'welcome'
-            }
-        },
+
         welcome: {
             initial: "prompt",
             on: { ENDSPEECH: "intent" },
@@ -62,7 +59,7 @@ const machine = Machine<SDSContext, any, SDSEvent>({
             on: {
                 RECOGNISED: [{
                     actions: assign((context) => { return { text: context.recResult } }),
-                    target: "idle"
+                    target: "loading"
                 }]
             },
             states: {
@@ -75,11 +72,7 @@ const machine = Machine<SDSContext, any, SDSEvent>({
                 },
             }
         },
-   idle: {
-      on: {
-        "": 'loading'
-      }
-    },
+
     loading: {
       invoke: {
         id: 'getIntent',
@@ -95,25 +88,23 @@ const machine = Machine<SDSContext, any, SDSEvent>({
       }
     },
     success: {
-                      on: {
-                        "": [
-                             {target: '#root.dm.dmAppointment', cond: (context) => context.intent === "Appointment" },
-                             {target: '#root.dm.TODOitem', cond: (context) => context.intent === "TODOitem" },
-                             {target: '#root.dm.Timer', cond: (context) => context.intent === "Timer" }
-                            ] 
-                      }
+            on: {
+              "": [
+                   {target: 'more_info', cond: (context) => context.intent.intent.confidence < 0.70 },
+                   {target: '#root.dm.dmAppointment', cond: (context) => context.intent.intent.name === "Appointment" },
+                   {target: '#root.dm.TODOitem', cond: (context) => context.intent.intent.name === "TODOitem" },
+                   {target: '#root.dm.Timer', cond: (context) => context.intent.intent.name === "Timer" },
+                   {target: 'more_info' }
+                  ] 
+                 }
     },
     failure: {
-      on: {
-        "" : [{
-                    target: "intent"
-                    /* pretending get correct value from RASA, and try next steps
-                    actions: assign((context) => { return { intent: "TODOitem" } }),
-                    target: "success"
-                    */
-
-                }]
-      }
+      entry: say("I can't figure out what you want me to do."),
+      on: { ENDSPEECH: "intent" }
+    },
+    more_info: {
+      entry: say("I'm not very sure about your intent. Try to specify it."),
+      on: { ENDSPEECH: "intent" }
     }
   }
 },
@@ -273,7 +264,7 @@ const rasaurl = 'https://lt2216-a2.herokuapp.com/model/parse'
 const nluRequest = (text: string) =>
     fetch(new Request(proxyurl + rasaurl, {
         method: 'POST',
- //       headers: { 'Origin': 'http://maraev.me' }, // only required with proxy
+        headers: { 'Origin': 'http://maraev.me' }, // only required with proxy
         body: `{"text": "${text}"}`
     }))
         .then(data => data.json());

@@ -53,6 +53,16 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
     id: "appointmentMachine",
     states: {
 
+        startover: {
+            entry: say("Ok. starting over."),
+            on: { ENDSPEECH: "welcome" }
+        },
+
+        stop: {
+            entry: say("Ok. Going back to the root menu."),
+            always: '#root.dm.IntentMachine.welcome'
+        },
+
         welcome: {
             initial: "prompt",
             on: { ENDSPEECH: "who" },
@@ -60,10 +70,15 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                 prompt: { entry: say("Let's create an appointment") }
             }
         },
+
         who: {
             initial: "prompt",
             on: {
-                RECOGNISED: [{
+                RECOGNISED: [
+                { target: 'stop', cond: (context) => context.recResult === 'stop' },
+                { target: 'welcome', cond: (context) => context.recResult === 'go back' },
+                { target: 'startover', cond: (context) => context.recResult === 'start over' },
+                {
                     cond: (context) => "person" in (grammar1[context.recResult] || {}),
                     actions: assign((context) => { return { person: grammar1[context.recResult].person } }),
                     target: "day"
@@ -80,15 +95,19 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                     entry: listen()
                 },
                 nomatch: {
-                    entry: say("Sorry I don't know them"),
+                    entry: say("Sorry I don't know them. Say for example Monica"),
                     on: { ENDSPEECH: "prompt" }
                 }
             }
         },
         day: {
-            initial: "prompt",
+            initial: "repeat",
             on: {
-                RECOGNISED: [{
+                RECOGNISED: [
+                { target: 'stop', cond: (context) => context.recResult === 'stop' },
+                { target: 'who', cond: (context) => context.recResult === 'go back' },
+                { target: 'startover', cond: (context) => context.recResult === 'start over' },
+                {
                     cond: (context) => "day" in (grammar2[context.recResult] || {}),
                     actions: assign((context) => { return { day: grammar2[context.recResult].day } }),
                     target: "whole_day"
@@ -97,10 +116,17 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                 { target: ".nomatch" }]
             },
             states: {
+                repeat: {
+                    entry: send((context) => ({
+                        type: "SPEAK",
+                        value: `OK. Meeting with ${context.person}.`
+                    })),
+                    on: { ENDSPEECH: "prompt" }
+                },
                 prompt: {
                     entry: send((context) => ({
                         type: "SPEAK",
-                        value: `OK. ${context.person}. On which day is your meeting?`
+                        value: ` On which day is your meeting? `
                     })),
                     on: { ENDSPEECH: "ask" }
                 },
@@ -108,15 +134,19 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                     entry: listen()
                 },
                 nomatch: {
-                    entry: say("Sorry I don't understand which day you mean."),
+                    entry: say("Sorry I don't understand which day you mean. Say for example on Tuesday"),
                     on: { ENDSPEECH: "prompt" }
                 }
             }
         },
         whole_day: {
-            initial: "prompt",
+            initial: "repeat",
             on: {
-                RECOGNISED: [{
+                RECOGNISED: [
+                { target: 'stop', cond: (context) => context.recResult === 'stop' },
+                { target: 'day', cond: (context) => context.recResult === 'go back' },
+                { target: 'startover', cond: (context) => context.recResult === 'start over' },
+                {
                     cond: (context) => "whole_day" in (grammar3[context.recResult] || {}),
                     actions: assign((context) => { return { whole_day: grammar3[context.recResult].whole_day } }),
                     target: ".choose"
@@ -125,10 +155,17 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                 { target: ".nomatch" }]
             },
             states: {
+                repeat: {
+                    entry: send((context) => ({
+                        type: "SPEAK",
+                        value: `OK. Meeting with ${context.person} on ${context.day}.`
+                    })),
+                    on: { ENDSPEECH: "prompt" }
+                },
                 prompt: {
                     entry: send((context) => ({
                         type: "SPEAK",
-                        value: `OK. ${context.day}. Will it take the whole day?`
+                        value: ` Will it take the whole day?`
                     })),
                     on: { ENDSPEECH: "ask" }
                 },
@@ -149,9 +186,13 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
             }
         },
         time: {
-            initial: "prompt",
+            initial: "repeat",
             on: {
-                RECOGNISED: [{
+                RECOGNISED: [
+                { target: 'stop', cond: (context) => context.recResult === 'stop' },
+                { target: 'whole_day', cond: (context) => context.recResult === 'go back' },
+                { target: 'startover', cond: (context) => context.recResult === 'start over' },
+                {
                     cond: (context) => "time" in (grammar4[context.recResult] || {}),
                     actions: assign((context) => { return { time: grammar4[context.recResult].time } }),
                     target: "confirm_with_time"
@@ -160,10 +201,17 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                 { target: ".nomatch" }]
             },
             states: {
+                repeat: {
+                    entry: send((context) => ({
+                        type: "SPEAK",
+                        value: `OK. `
+                    })),
+                    on: { ENDSPEECH: "prompt" }
+                },
                 prompt: {
                     entry: send((context) => ({
                         type: "SPEAK",
-                        value: `OK. ${context.person}, ${context.day}. What time is your meeting?`
+                        value: `What time is your meeting?`
                     })),
                     on: { ENDSPEECH: "ask" }
                 },
@@ -171,7 +219,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                     entry: listen()
                 },
                 nomatch: {
-                    entry: say("Sorry I don't understand. Say a time."),
+                    entry: say("Sorry I don't understand which time you mean. Say for example at eleven"),
                     on: { ENDSPEECH: "prompt" }
                 }
             }
@@ -179,7 +227,11 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
         confirm_without_time: {
             initial: "prompt",
             on: {
-                RECOGNISED: [{
+                RECOGNISED: [
+                { target: 'stop', cond: (context) => context.recResult === 'stop' },
+                { target: 'whole_day', cond: (context) => context.recResult === 'go back' },
+                { target: 'startover', cond: (context) => context.recResult === 'start over' },
+                {
                     cond: (context) => "confirm" in (grammar5[context.recResult] || {}),
                     actions: assign((context) => { return { confirm: grammar5[context.recResult].confirm } }),
                     target: ".choose"
@@ -216,7 +268,11 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
         confirm_with_time: {
             initial: "prompt",
             on: {
-                RECOGNISED: [{
+                RECOGNISED: [
+                { target: 'stop', cond: (context) => context.recResult === 'stop' },
+                { target: 'time', cond: (context) => context.recResult === 'go back' },
+                { target: 'startover', cond: (context) => context.recResult === 'start over' },
+                {
                     cond: (context) => "confirm" in (grammar5[context.recResult] || {}),
                     actions: assign((context) => { return { confirm: grammar5[context.recResult].confirm } }),
                     target: ".choose"
